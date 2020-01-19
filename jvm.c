@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #define BUF_SIZE 1024
 #define error(...) do {\
@@ -27,6 +28,12 @@ void read_bytes(reader_t *reader, unsigned char *buf, size_t n) {
   }
   memcpy(buf, reader->data + reader->cur, n);
   reader->cur += n;
+}
+
+uint16_t read_u2(reader_t *reader) {
+  unsigned char buf[2];
+  read_bytes(reader, buf, 2);
+  return ((uint16_t)buf[0]) << 8 | (uint16_t)buf[1];
 }
 
 int main(int argc, char **argv) {
@@ -59,13 +66,15 @@ int main(int argc, char **argv) {
   }
 
   fclose(fp);
-  reader_t class_reader;
-  init_reader(&class_reader, class_file_size, class_file_data);
+  reader_t class_reader_instance;
+  reader_t *class_reader = &class_reader_instance;
+  init_reader(class_reader, class_file_size, class_file_data);
 
   // read magic
   unsigned char magic[4];
-  read_bytes(&class_reader, magic, 4);
-  printf("%x%x%x%x\n", magic[0], magic[1], magic[2], magic[3]);
+  read_bytes(class_reader, magic, 4);
+  uint16_t major = read_u2(class_reader);
+  uint16_t minor = read_u2(class_reader);
 
   return 0;
 }
