@@ -12,6 +12,7 @@
 
 typedef uint8_t u1_t;
 typedef uint16_t u2_t;
+typedef uint32_t u4_t;
 
 typedef struct {
   size_t size;
@@ -63,13 +64,27 @@ typedef union {
   } utf8;
 } constant_t;
 
+typedef struct {
+  u2_t attribute_name_index;
+  u4_t attribute_length;
+  char *info;
+} attributes_t;
+
+typedef struct {
+  u2_t access_flags;
+  u2_t name_index;
+  u2_t descriptor_index;
+  u2_t attributes_count;
+  attributes_t *attributes;
+} method_t;
+
 void init_reader(reader_t *reader, size_t size, char *data) {
   reader->size = size;
   reader->cur = 0;
   reader->data = data;
 }
 
-void read_bytes(reader_t *reader, unsigned char *buf, size_t n) {
+void read_bytes(reader_t *reader, char *buf, size_t n) {
   if (reader->cur + n >= reader->size) {
     error("cannot read from reader");
   }
@@ -78,15 +93,33 @@ void read_bytes(reader_t *reader, unsigned char *buf, size_t n) {
 }
 
 u1_t read_u1(reader_t *reader) {
-  unsigned char ch;
+  char ch;
   read_bytes(reader, &ch, 1);
-  return ch;
+  return (u1_t)ch;
 }
 
 u2_t read_u2(reader_t *reader) {
-  unsigned char buf[2];
+  char buf[2];
   read_bytes(reader, buf, 2);
   return ((u2_t)buf[0]) << 8 | (u2_t)buf[1];
+}
+
+u4_t read_u4(reader_t *reader) {
+  char buf[4];
+  read_bytes(reader, buf, 4);
+  return ((u4_t)buf[0] << 24 | (u4_t)buf[1] << 16 | (u4_t)buf[2] << 8 | (u4_t)buf[3]);
+}
+
+void read_attribute(reader_t *reader, attributes_t *attribute) {
+  attribute->attribute_name_index = read_u2(reader);
+  u4_t attribute_length = read_u4(reader);
+  attribute->attribute_length = attribute_length;
+  char *info = malloc(attribute_length);
+  if (info == NULL) {
+    error("cannot malloc for attribute");
+  }
+  read_bytes(reader, info, attribute_length);
+  attribute->info = info;
 }
 
 int main(int argc, char **argv) {
@@ -124,10 +157,10 @@ int main(int argc, char **argv) {
   init_reader(class_reader, class_file_size, class_file_data);
 
   // read magic and major/minor
-  unsigned char magic[4];
+  char magic[4];
   read_bytes(class_reader, magic, 4);
-  read_u2(class_reader);
-  read_u2(class_reader);
+  read_u2(class_reader); // major
+  read_u2(class_reader); // minor
 
   // read constant pool
   u2_t constant_pool_count = read_u2(class_reader);
@@ -159,13 +192,13 @@ int main(int argc, char **argv) {
       case CONSTANT_UTF8:
         {
           u2_t length = read_u2(class_reader);
-          unsigned char *bytes = malloc(length);
+          char *bytes = malloc(length);
           if (bytes == NULL) {
             error("cannot malloc for constant utf8");
           }
           read_bytes(class_reader, bytes, (size_t)length);
           constant->utf8.length = length;
-          constant->utf8.bytes = (char *)bytes;
+          constant->utf8.bytes = bytes;
           break;
         }
       default:
@@ -173,6 +206,36 @@ int main(int argc, char **argv) {
         break;
     }
   }
+
+  read_u2(class_reader); // accsess flags
+  read_u2(class_reader); // this class
+  read_u2(class_reader); // super class
+  read_u2(class_reader); // interface count
+  read_u2(class_reader); // field count
+
+  u2_t method_count = read_u2(class_reader);
+  method_t methods[method_count];
+  for (int i = 0; i < method_count; i++) {
+    method_t *method = methods + i;
+    method->access_flags = read_u2(class_reader);
+    method->name_index = read_u2(class_reader);
+    method->descriptor_index = read_u2(class_reader);
+    u2_t attributes_count = read_u2(class_reader);
+    method->attributes_count = attributes_count;
+    method->attributes = malloc(sizeof(attributes_t) * attributes_count);
+    for (int j = 0; j < attributes_count; j++) {
+      read_attribute(class_reader, method->attributes + j);
+    }
+  }
+
+  // cleanup methods
+  for (int i = 0; i < method_count; i++) {
+    for (int j = 0; j < methods[i].attributes_count; j++) {
+      free(methods[i].attributes[j].info);
+    }
+  }
+
+  free(class_file_data);
 
   return 0;
 }
