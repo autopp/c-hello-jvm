@@ -85,7 +85,7 @@ void init_reader(reader_t *reader, size_t size, char *data) {
 }
 
 void read_bytes(reader_t *reader, char *buf, size_t n) {
-  if (reader->cur + n >= reader->size) {
+  if (reader->cur + n > reader->size) {
     error("cannot read from reader");
   }
   memcpy(buf, reader->data + reader->cur, n);
