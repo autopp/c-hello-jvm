@@ -228,6 +228,13 @@ int main(int argc, char **argv) {
     }
   }
 
+  // read attributes of class
+  u2_t attributes_count = read_u2(class_reader);
+  attributes_t attributes[attributes_count];
+  for (int i = 0; i < attributes_count; i++) {
+    read_attribute(class_reader, attributes + i);
+  }
+
   // cleanup methods
   for (int i = 0; i < method_count; i++) {
     for (int j = 0; j < methods[i].attributes_count; j++) {
