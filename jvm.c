@@ -235,6 +235,27 @@ int main(int argc, char **argv) {
     read_attribute(class_reader, attributes + i);
   }
 
+  // find main method
+  method_t *main_method = NULL;
+  for (int i = 0; i < method_count; i++) {
+    method_t *method = &methods[i];
+    constant_t *c = &constant_pool[method->name_index];
+    if (c->common.tag != CONSTANT_UTF8) {
+      error("method name is not UTF8: %x", c->common.tag);
+    }
+    char method_name[c->utf8.length + 1];
+    memcpy(method_name, c->utf8.bytes, c->utf8.length);
+    method_name[c->utf8.length] = '\0';
+    if (strcmp(method_name, "main") == 0) {
+      main_method = method;
+      break;
+    }
+  }
+
+  if (main_method == NULL) {
+    error("cannot found main method");
+  }
+
   // cleanup methods
   for (int i = 0; i < method_count; i++) {
     for (int j = 0; j < methods[i].attributes_count; j++) {
