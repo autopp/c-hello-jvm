@@ -256,6 +256,27 @@ int main(int argc, char **argv) {
     error("cannot found main method");
   }
 
+  // find code attribute of main
+  attributes_t *code_attribute = NULL;
+  for (int i = 0; i < main_method->attributes_count; i++) {
+    attributes_t *attribute = &main_method->attributes[i];
+    constant_t *c = &constant_pool[attribute->attribute_name_index];
+    if (c->common.tag != CONSTANT_UTF8) {
+      error("main method attribute name is not UTF8: %x", c->common.tag);
+    }
+    char attribute_name[c->utf8.length + 1];
+    memcpy(attribute_name, c->utf8.bytes, c->utf8.length);
+    attribute_name[c->utf8.length] = '\0';
+    if (strcmp(attribute_name, "Code") == 0) {
+      code_attribute = attribute;
+      break;
+    }
+  }
+
+  if (code_attribute == NULL) {
+    error("cannot found code attribute of main method");
+  }
+
   // cleanup methods
   for (int i = 0; i < method_count; i++) {
     for (int j = 0; j < methods[i].attributes_count; j++) {
