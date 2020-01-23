@@ -277,10 +277,24 @@ int main(int argc, char **argv) {
     error("cannot found code attribute of main method");
   }
 
+  // cleanup attributes of class
+  for (int i = 0; i < attributes_count; i++) {
+    free(attributes[i].info);
+  }
+
   // cleanup methods
   for (int i = 0; i < method_count; i++) {
     for (int j = 0; j < methods[i].attributes_count; j++) {
       free(methods[i].attributes[j].info);
+    }
+    free(methods[i].attributes);
+  }
+
+  // cleanup constant pool
+  for (int i = 0; i < constant_pool_count; i++) {
+    constant_t *c = &constant_pool[i];
+    if (c->common.tag == CONSTANT_UTF8) {
+      free(c->utf8.bytes);
     }
   }
 
