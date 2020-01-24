@@ -277,6 +277,30 @@ int main(int argc, char **argv) {
     error("cannot found code attribute of main method");
   }
 
+  reader_t code_reader_instance;
+  reader_t *code_reader = &code_reader_instance;
+  init_reader(code_reader, code_attribute->attribute_length, code_attribute->info);
+  read_u2(code_reader); //max stack
+  read_u2(code_reader); //max stack
+  u4_t code_length = read_u4(code_reader);
+  char code[code_length];
+  read_bytes(code_reader, code, code_length);
+  u2_t exeption_table_length = read_u2(code_reader);
+  if (exeption_table_length != 0) {
+    error("exception is not supported yet");
+  }
+
+  u2_t code_attributes_count = read_u2(code_reader);
+  attributes_t code_attributes[code_attributes_count];
+  for (int i = 0; i < code_attributes_count; i++) {
+    read_attribute(code_reader, &code_attributes[i]);
+  }
+
+  // cleanup attribute of code attribute
+  for (int i = 0; i < code_attributes_count; i++) {
+    free(code_attributes[i].info);
+  }
+
   // cleanup attributes of class
   for (int i = 0; i < attributes_count; i++) {
     free(attributes[i].info);
