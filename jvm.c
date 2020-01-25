@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define BUF_SIZE 1024
 #define error(...) do {\
@@ -277,23 +278,86 @@ int main(int argc, char **argv) {
     error("cannot found code attribute of main method");
   }
 
-  reader_t code_reader_instance;
-  reader_t *code_reader = &code_reader_instance;
-  init_reader(code_reader, code_attribute->attribute_length, code_attribute->info);
-  read_u2(code_reader); //max stack
-  read_u2(code_reader); //max stack
-  u4_t code_length = read_u4(code_reader);
+  reader_t code_attr_reader_instance;
+  reader_t *code_attr_reader = &code_attr_reader_instance;
+  init_reader(code_attr_reader, code_attribute->attribute_length, code_attribute->info);
+  u2_t max_stack = read_u2(code_attr_reader);
+  read_u2(code_attr_reader); // max locals
+  u4_t code_length = read_u4(code_attr_reader);
   char code[code_length];
-  read_bytes(code_reader, code, code_length);
-  u2_t exeption_table_length = read_u2(code_reader);
+  read_bytes(code_attr_reader, code, code_length);
+  u2_t exeption_table_length = read_u2(code_attr_reader);
   if (exeption_table_length != 0) {
     error("exception is not supported yet");
   }
 
-  u2_t code_attributes_count = read_u2(code_reader);
+  u2_t code_attributes_count = read_u2(code_attr_reader);
   attributes_t code_attributes[code_attributes_count];
   for (int i = 0; i < code_attributes_count; i++) {
-    read_attribute(code_reader, &code_attributes[i]);
+    read_attribute(code_attr_reader, &code_attributes[i]);
+  }
+
+  reader_t code_reader_instance;
+  reader_t *code_reader = &code_reader_instance;
+  init_reader(code_reader, code_length, code);
+
+  constant_t *operand_stack[max_stack];
+  size_t sp = 0;
+  bool finished = false;
+  while (!finished) {
+    u1_t opcode = read_u1(code_reader);
+    switch (opcode) {
+      case 0xB2: { // getstatic
+        u2_t operand = read_u2(code_reader);
+        operand_stack[sp++] = &constant_pool[operand];
+        break;
+      }
+      case 0x12: { // ldc
+        u1_t operand = read_u1(code_reader);
+        constant_t *str = &constant_pool[operand];
+        if (str->common.tag != CONSTANT_STRING) {
+          error("operand is not string: %d", str->common.tag);
+        }
+        operand_stack[sp++] = &constant_pool[str->string.string_index];
+        break;
+      }
+      case 0xB6: { // invokevirtual
+        constant_t *cp_info = &constant_pool[read_u2(code_reader)];
+        if (cp_info->common.tag != CONSTANT_METHODREF) {
+          error("operand is not methodref: %d", cp_info->common.tag);
+        }
+        constant_t *name_and_type = &constant_pool[cp_info->methodref.name_and_type_index];
+        if (name_and_type->common.tag != CONSTANT_NAME_AND_TYPE) {
+          error("operand is not methodref: %d", name_and_type->common.tag);
+        }
+        constant_t *method_name_utf8 = &constant_pool[name_and_type->name_and_type.name_index];
+        char method_name[method_name_utf8->utf8.length + 1];
+        memcpy(method_name, method_name_utf8->utf8.bytes, method_name_utf8->utf8.length);
+
+        constant_t *descriptor_utf8 = &constant_pool[name_and_type->name_and_type.descriptor_index];
+        char descriptor[descriptor_utf8->utf8.length + 1];
+        memcpy(descriptor, descriptor_utf8->utf8.bytes, descriptor_utf8->utf8.length);
+
+        // count args
+        int args_count = 0;
+        const char *p = descriptor;
+        while ((p = strchr(p, ';')) != NULL) {
+          p++;
+          args_count++;
+        }
+        constant_t *args[args_count];
+        for (int i = 0; i < args_count; i++) {
+          args[i] = operand_stack[--sp];
+        }
+
+        break;
+      }
+      case 0xB1: // return
+        finished = true;
+        break;
+      default:
+        error("unknown opecode: 0x%x", opcode);
+    }
   }
 
   // cleanup attribute of code attribute
