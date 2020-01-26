@@ -333,10 +333,12 @@ int main(int argc, char **argv) {
         constant_t *method_name_utf8 = &constant_pool[name_and_type->name_and_type.name_index];
         char method_name[method_name_utf8->utf8.length + 1];
         memcpy(method_name, method_name_utf8->utf8.bytes, method_name_utf8->utf8.length);
+        method_name[method_name_utf8->utf8.length] = '\0';
 
         constant_t *descriptor_utf8 = &constant_pool[name_and_type->name_and_type.descriptor_index];
         char descriptor[descriptor_utf8->utf8.length + 1];
         memcpy(descriptor, descriptor_utf8->utf8.bytes, descriptor_utf8->utf8.length);
+        descriptor[descriptor_utf8->utf8.length] = '\0';
 
         // count args
         int args_count = 0;
@@ -349,6 +351,23 @@ int main(int argc, char **argv) {
         for (int i = 0; i < args_count; i++) {
           args[i] = operand_stack[--sp];
         }
+
+        constant_t *context = operand_stack[--sp];
+        constant_t *base_class_utf8 = &constant_pool[constant_pool[context->fieldref.class_index].class.name_index];
+        if (base_class_utf8->common.tag != CONSTANT_UTF8) {
+          error("error");
+        }
+        char base_class[base_class_utf8->utf8.length];
+        memcpy(base_class, base_class_utf8->utf8.bytes, base_class_utf8->utf8.length);
+        base_class[base_class_utf8->utf8.length] = '\0';
+
+        constant_t *base_class_target_utf8 = &constant_pool[constant_pool[context->fieldref.name_and_type_index].name_and_type.name_index];
+        if (base_class_target_utf8->common.tag != CONSTANT_UTF8) {
+          error("error");
+        }
+        char base_class_target[base_class_target_utf8->utf8.length];
+        memcpy(base_class_target, base_class_target_utf8->utf8.bytes, base_class_target_utf8->utf8.length);
+        base_class_target[base_class_target_utf8->utf8.length] = '\0';
 
         break;
       }
