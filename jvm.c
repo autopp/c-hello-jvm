@@ -79,6 +79,24 @@ typedef struct {
   attributes_t *attributes;
 } method_t;
 
+typedef void (*method_func_t)(constant_t *args[], int args_count);
+
+typedef struct {
+  const char *name;
+  method_func_t body;
+} method_entry_t;
+
+typedef struct object object_t;
+
+typedef struct {
+  const char *name;
+  object_t *value;
+} field_entry_t;
+struct object {
+  field_entry_t *fields;
+  method_entry_t *methods;
+};
+
 void init_reader(reader_t *reader, size_t size, char *data) {
   reader->size = size;
   reader->cur = 0;
@@ -121,6 +139,16 @@ void read_attribute(reader_t *reader, attributes_t *attribute) {
   }
   read_bytes(reader, info, attribute_length);
   attribute->info = info;
+}
+
+void println(constant_t *args[], int args_count) {
+  if (args_count != 1) {
+    error("expected 1, but got %d", args_count);
+  }
+  char message[args[0]->utf8.length + 1];
+  memcpy(message, args[0]->utf8.bytes, 0);
+  message[args[0]->utf8.length] = '\0';
+  printf("%s\n", message);
 }
 
 int main(int argc, char **argv) {
@@ -297,6 +325,39 @@ int main(int argc, char **argv) {
     read_attribute(code_attr_reader, &code_attributes[i]);
   }
 
+  // initialize runtime
+  field_entry_t empty_fields[] = {
+    { NULL }
+  };
+  method_entry_t empty_methods[] = {
+    { NULL }
+  };
+  method_entry_t out_methods[] = {
+    { "println", println },
+    { NULL }
+  };
+  object_t out_object = {
+    empty_fields,
+    out_methods
+  };
+  field_entry_t system_fields[] = {
+    { "out", &out_object },
+    { NULL }
+  };
+  object_t system_class = {
+    system_fields,
+    empty_methods
+  };
+
+  struct {
+    const char *path;
+    object_t *class;
+  } classes[] = {
+    { "java/lang/System", &system_class },
+    { NULL }
+  };
+
+  // eval bytecodes;
   reader_t code_reader_instance;
   reader_t *code_reader = &code_reader_instance;
   init_reader(code_reader, code_length, code);
@@ -369,6 +430,14 @@ int main(int argc, char **argv) {
         memcpy(base_class_target, base_class_target_utf8->utf8.bytes, base_class_target_utf8->utf8.length);
         base_class_target[base_class_target_utf8->utf8.length] = '\0';
 
+        // search class
+        object_t *class = NULL;
+        for (int i = 0; classes[i].path != NULL; i++) {
+          if (strcmp(classes[i].path, base_class) == 0) {
+            class = classes[i].class;
+            break;
+          }
+        }
         break;
       }
       case 0xB1: // return
