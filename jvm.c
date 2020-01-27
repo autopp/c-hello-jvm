@@ -145,8 +145,12 @@ void println(constant_t *args[], int args_count) {
   if (args_count != 1) {
     error("expected 1, but got %d", args_count);
   }
+  if (args[0]->common.tag != CONSTANT_UTF8) {
+    error("expected utf8, but got 0x%02x", args[0]->common.tag);
+  }
+
   char message[args[0]->utf8.length + 1];
-  memcpy(message, args[0]->utf8.bytes, 0);
+  memcpy(message, args[0]->utf8.bytes, args[0]->utf8.length);
   message[args[0]->utf8.length] = '\0';
   printf("%s\n", message);
 }
@@ -418,7 +422,7 @@ int main(int argc, char **argv) {
         if (base_class_utf8->common.tag != CONSTANT_UTF8) {
           error("error");
         }
-        char base_class[base_class_utf8->utf8.length];
+        char base_class[base_class_utf8->utf8.length + 1];
         memcpy(base_class, base_class_utf8->utf8.bytes, base_class_utf8->utf8.length);
         base_class[base_class_utf8->utf8.length] = '\0';
 
@@ -426,7 +430,7 @@ int main(int argc, char **argv) {
         if (base_class_target_utf8->common.tag != CONSTANT_UTF8) {
           error("error");
         }
-        char base_class_target[base_class_target_utf8->utf8.length];
+        char base_class_target[base_class_target_utf8->utf8.length + 1];
         memcpy(base_class_target, base_class_target_utf8->utf8.bytes, base_class_target_utf8->utf8.length);
         base_class_target[base_class_target_utf8->utf8.length] = '\0';
 
@@ -438,6 +442,37 @@ int main(int argc, char **argv) {
             break;
           }
         }
+        if (class == NULL) {
+          error("cannot found base class: %s", base_class);
+        }
+
+        // search referenced object
+        object_t *receiver = NULL;
+        for (int i = 0; class->fields[i].name != NULL; i++) {
+          if (strcmp(class->fields[i].name, base_class_target) == 0) {
+            receiver = class->fields[i].value;
+            break;
+          }
+        }
+        if (receiver == NULL) {
+          error("cannot found field: %s", base_class_target);
+        }
+
+        // search method
+        method_func_t func = NULL;
+        for (int i = 0; receiver->methods[i].name != NULL; i++) {
+          if (strcmp(receiver->methods[i].name, method_name) == 0) {
+            func = receiver->methods[i].body;
+            break;
+          }
+        }
+        if (func == NULL) {
+          error("cannot found method: %s", method_name);
+        }
+
+        // invoke method
+        func(args, args_count);
+
         break;
       }
       case 0xB1: // return
