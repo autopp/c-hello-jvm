@@ -129,6 +129,18 @@ u4_t read_u4(reader_t *reader) {
   return ((u4_t)buf[0] << 24 | (u4_t)buf[1] << 16 | (u4_t)buf[2] << 8 | (u4_t)buf[3]);
 }
 
+#define copy_utf8(name, c)                                     \
+  char name[(c)->utf8.length + 1];                             \
+  do                                                           \
+  {                                                            \
+    if ((c)->common.tag != CONSTANT_UTF8)                      \
+    {                                                          \
+      error("expected utf8, but got 0x%02x", (c)->common.tag); \
+    }                                                          \
+    memcpy(name, (c)->utf8.bytes, (c)->utf8.length);           \
+    name[(c)->utf8.length] = '\0';                             \
+  } while (0)
+
 void read_attribute(reader_t *reader, attributes_t *attribute) {
   attribute->attribute_name_index = read_u2(reader);
   u4_t attribute_length = read_u4(reader);
@@ -145,13 +157,7 @@ void println(constant_t *args[], int args_count) {
   if (args_count != 1) {
     error("expected 1, but got %d", args_count);
   }
-  if (args[0]->common.tag != CONSTANT_UTF8) {
-    error("expected utf8, but got 0x%02x", args[0]->common.tag);
-  }
-
-  char message[args[0]->utf8.length + 1];
-  memcpy(message, args[0]->utf8.bytes, args[0]->utf8.length);
-  message[args[0]->utf8.length] = '\0';
+  copy_utf8(message, args[0]);
   printf("%s\n", message);
 }
 
@@ -273,12 +279,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < method_count; i++) {
     method_t *method = &methods[i];
     constant_t *c = &constant_pool[method->name_index];
-    if (c->common.tag != CONSTANT_UTF8) {
-      error("method name is not UTF8: %x", c->common.tag);
-    }
-    char method_name[c->utf8.length + 1];
-    memcpy(method_name, c->utf8.bytes, c->utf8.length);
-    method_name[c->utf8.length] = '\0';
+    copy_utf8(method_name, c);
     if (strcmp(method_name, "main") == 0) {
       main_method = method;
       break;
@@ -294,12 +295,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < main_method->attributes_count; i++) {
     attributes_t *attribute = &main_method->attributes[i];
     constant_t *c = &constant_pool[attribute->attribute_name_index];
-    if (c->common.tag != CONSTANT_UTF8) {
-      error("main method attribute name is not UTF8: %x", c->common.tag);
-    }
-    char attribute_name[c->utf8.length + 1];
-    memcpy(attribute_name, c->utf8.bytes, c->utf8.length);
-    attribute_name[c->utf8.length] = '\0';
+    copy_utf8(attribute_name, c);
     if (strcmp(attribute_name, "Code") == 0) {
       code_attribute = attribute;
       break;
@@ -393,17 +389,11 @@ int main(int argc, char **argv) {
         }
         constant_t *name_and_type = &constant_pool[cp_info->methodref.name_and_type_index];
         if (name_and_type->common.tag != CONSTANT_NAME_AND_TYPE) {
-          error("operand is not methodref: %d", name_and_type->common.tag);
+          error("operand is not name_and_type: %d", name_and_type->common.tag);
         }
-        constant_t *method_name_utf8 = &constant_pool[name_and_type->name_and_type.name_index];
-        char method_name[method_name_utf8->utf8.length + 1];
-        memcpy(method_name, method_name_utf8->utf8.bytes, method_name_utf8->utf8.length);
-        method_name[method_name_utf8->utf8.length] = '\0';
 
-        constant_t *descriptor_utf8 = &constant_pool[name_and_type->name_and_type.descriptor_index];
-        char descriptor[descriptor_utf8->utf8.length + 1];
-        memcpy(descriptor, descriptor_utf8->utf8.bytes, descriptor_utf8->utf8.length);
-        descriptor[descriptor_utf8->utf8.length] = '\0';
+        copy_utf8(method_name, &constant_pool[name_and_type->name_and_type.name_index]);
+        copy_utf8(descriptor, &constant_pool[name_and_type->name_and_type.descriptor_index]);
 
         // count args
         int args_count = 0;
@@ -418,21 +408,9 @@ int main(int argc, char **argv) {
         }
 
         constant_t *context = operand_stack[--sp];
-        constant_t *base_class_utf8 = &constant_pool[constant_pool[context->fieldref.class_index].class.name_index];
-        if (base_class_utf8->common.tag != CONSTANT_UTF8) {
-          error("error");
-        }
-        char base_class[base_class_utf8->utf8.length + 1];
-        memcpy(base_class, base_class_utf8->utf8.bytes, base_class_utf8->utf8.length);
-        base_class[base_class_utf8->utf8.length] = '\0';
+        copy_utf8(base_class, &constant_pool[constant_pool[context->fieldref.class_index].class.name_index]);
 
-        constant_t *base_class_target_utf8 = &constant_pool[constant_pool[context->fieldref.name_and_type_index].name_and_type.name_index];
-        if (base_class_target_utf8->common.tag != CONSTANT_UTF8) {
-          error("error");
-        }
-        char base_class_target[base_class_target_utf8->utf8.length + 1];
-        memcpy(base_class_target, base_class_target_utf8->utf8.bytes, base_class_target_utf8->utf8.length);
-        base_class_target[base_class_target_utf8->utf8.length] = '\0';
+        copy_utf8(base_class_target, &constant_pool[constant_pool[context->fieldref.name_and_type_index].name_and_type.name_index]);
 
         // search class
         object_t *class = NULL;
