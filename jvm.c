@@ -129,16 +129,20 @@ u4_t read_u4(reader_t *reader) {
   return ((u4_t)buf[0] << 24 | (u4_t)buf[1] << 16 | (u4_t)buf[2] << 8 | (u4_t)buf[3]);
 }
 
-#define copy_utf8(name, c)                                     \
-  char name[(c)->utf8.length + 1];                             \
-  do                                                           \
-  {                                                            \
-    if ((c)->common.tag != CONSTANT_UTF8)                      \
-    {                                                          \
-      error("expected utf8, but got 0x%02x", (c)->common.tag); \
-    }                                                          \
-    memcpy(name, (c)->utf8.bytes, (c)->utf8.length);           \
-    name[(c)->utf8.length] = '\0';                             \
+#define copy_utf8(name, c)                           \
+  char name[(c)->utf8.length + 1];                   \
+  do                                                 \
+  {                                                  \
+    assert_constant((c), CONSTANT_UTF8);             \
+    memcpy(name, (c)->utf8.bytes, (c)->utf8.length); \
+    name[(c)->utf8.length] = '\0';                   \
+  } while (0)
+
+#define assert_constant(c, t)\
+  do {\
+    if ((c)->common.tag != (t)) {\
+      error("expected %s, but got 0x%02x", #t, (c)->common.tag);\
+    }\
   } while (0)
 
 void read_attribute(reader_t *reader, attributes_t *attribute) {
@@ -376,21 +380,15 @@ int main(int argc, char **argv) {
       case 0x12: { // ldc
         u1_t operand = read_u1(code_reader);
         constant_t *str = &constant_pool[operand];
-        if (str->common.tag != CONSTANT_STRING) {
-          error("operand is not string: %d", str->common.tag);
-        }
+        assert_constant(str, CONSTANT_STRING);
         operand_stack[sp++] = &constant_pool[str->string.string_index];
         break;
       }
       case 0xB6: { // invokevirtual
         constant_t *cp_info = &constant_pool[read_u2(code_reader)];
-        if (cp_info->common.tag != CONSTANT_METHODREF) {
-          error("operand is not methodref: %d", cp_info->common.tag);
-        }
+        assert_constant(cp_info, CONSTANT_METHODREF);
         constant_t *name_and_type = &constant_pool[cp_info->methodref.name_and_type_index];
-        if (name_and_type->common.tag != CONSTANT_NAME_AND_TYPE) {
-          error("operand is not name_and_type: %d", name_and_type->common.tag);
-        }
+        assert_constant(name_and_type, CONSTANT_NAME_AND_TYPE);
 
         copy_utf8(method_name, &constant_pool[name_and_type->name_and_type.name_index]);
         copy_utf8(descriptor, &constant_pool[name_and_type->name_and_type.descriptor_index]);
