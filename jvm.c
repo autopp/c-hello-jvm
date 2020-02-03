@@ -103,6 +103,16 @@ void init_reader(reader_t *reader, size_t size, char *data) {
   reader->data = data;
 }
 
+char *skip_bytes(reader_t *reader, size_t n) {
+  if (reader->cur + n > reader->size) {
+    error("cannot read from reader");
+  }
+  char *cur_ptr = reader->data + reader->cur;
+  reader->cur += n;
+
+  return cur_ptr;
+}
+
 void read_bytes(reader_t *reader, char *buf, size_t n) {
   if (reader->cur + n > reader->size) {
     error("cannot read from reader");
@@ -235,13 +245,8 @@ int main(int argc, char **argv) {
       case CONSTANT_UTF8:
         {
           u2_t length = read_u2(class_reader);
-          char *bytes = malloc(length);
-          if (bytes == NULL) {
-            error("cannot malloc for constant utf8");
-          }
-          read_bytes(class_reader, bytes, (size_t)length);
           constant->utf8.length = length;
-          constant->utf8.bytes = bytes;
+          constant->utf8.bytes = skip_bytes(class_reader, (size_t)length);
           break;
         }
       default:
@@ -475,14 +480,6 @@ int main(int argc, char **argv) {
       free(methods[i].attributes[j].info);
     }
     free(methods[i].attributes);
-  }
-
-  // cleanup constant pool
-  for (int i = 0; i < constant_pool_count; i++) {
-    constant_t *c = &constant_pool[i];
-    if (c->common.tag == CONSTANT_UTF8) {
-      free(c->utf8.bytes);
-    }
   }
 
   free(class_file_data);
