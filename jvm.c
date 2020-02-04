@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
   }
   size_t class_file_size = 0;
   while (1) {
-    size_t n = fread(class_file_data, 1, BUF_SIZE, fp);
+    size_t n = fread(class_file_data + class_file_size, 1, BUF_SIZE, fp);
     class_file_size += n;
 
     if (n < BUF_SIZE) {
