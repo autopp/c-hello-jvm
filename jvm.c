@@ -159,12 +159,7 @@ void read_attribute(reader_t *reader, attributes_t *attribute) {
   attribute->attribute_name_index = read_u2(reader);
   u4_t attribute_length = read_u4(reader);
   attribute->attribute_length = attribute_length;
-  char *info = malloc(attribute_length);
-  if (info == NULL) {
-    error("cannot malloc for attribute");
-  }
-  read_bytes(reader, info, attribute_length);
-  attribute->info = info;
+  attribute->info = skip_bytes(reader, attribute_length);
 }
 
 void println(constant_t *args[], int args_count) {
@@ -464,21 +459,8 @@ int main(int argc, char **argv) {
     }
   }
 
-  // cleanup attribute of code attribute
-  for (int i = 0; i < code_attributes_count; i++) {
-    free(code_attributes[i].info);
-  }
-
-  // cleanup attributes of class
-  for (int i = 0; i < attributes_count; i++) {
-    free(attributes[i].info);
-  }
-
   // cleanup methods
   for (int i = 0; i < method_count; i++) {
-    for (int j = 0; j < methods[i].attributes_count; j++) {
-      free(methods[i].attributes[j].info);
-    }
     free(methods[i].attributes);
   }
 
