@@ -121,6 +121,10 @@ void read_bytes(reader_t *reader, char *buf, size_t n) {
   reader->cur += n;
 }
 
+int is_eod(reader_t *reader) {
+  return reader->cur >= reader->size;
+}
+
 u1_t read_u1(reader_t *reader) {
   char ch;
   read_bytes(reader, &ch, 1);
@@ -276,6 +280,10 @@ int main(int argc, char **argv) {
   attributes_t attributes[attributes_count];
   for (int i = 0; i < attributes_count; i++) {
     read_attribute(class_reader, attributes + i);
+  }
+
+  if (!is_eod(class_reader)) {
+    error("class file contents are remained yet");
   }
 
   // find main method
