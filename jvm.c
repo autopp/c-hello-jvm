@@ -97,6 +97,13 @@ struct object {
   method_entry_t *methods;
 };
 
+typedef enum {
+  OP_GETSTATIC = 0xB2,
+  OP_LDC = 0x12,
+  OP_INVOKEVIRTUAL = 0xB6,
+  OP_RETURN = 0xB1
+} opcode_t;
+
 void init_reader(reader_t *reader, size_t size, char *data) {
   reader->size = size;
   reader->cur = 0;
@@ -380,19 +387,19 @@ int main(int argc, char **argv) {
   while (!finished) {
     u1_t opcode = read_u1(code_reader);
     switch (opcode) {
-      case 0xB2: { // getstatic
+      case OP_GETSTATIC: { // getstatic
         u2_t operand = read_u2(code_reader);
         operand_stack[sp++] = &constant_pool[operand];
         break;
       }
-      case 0x12: { // ldc
+      case OP_LDC: { // ldc
         u1_t operand = read_u1(code_reader);
         constant_t *str = &constant_pool[operand];
         assert_constant(str, CONSTANT_STRING);
         operand_stack[sp++] = &constant_pool[str->string.string_index];
         break;
       }
-      case 0xB6: { // invokevirtual
+      case OP_INVOKEVIRTUAL: { // invokevirtual
         constant_t *cp_info = &constant_pool[read_u2(code_reader)];
         assert_constant(cp_info, CONSTANT_METHODREF);
         constant_t *name_and_type = &constant_pool[cp_info->methodref.name_and_type_index];
@@ -459,7 +466,7 @@ int main(int argc, char **argv) {
 
         break;
       }
-      case 0xB1: // return
+      case OP_RETURN: // return
         finished = true;
         break;
       default:
