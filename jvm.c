@@ -216,8 +216,7 @@ int main(int argc, char **argv) {
   init_reader(class_reader, class_file_size, class_file_data);
 
   // read magic and major/minor
-  char magic[4];
-  read_bytes(class_reader, magic, 4);
+  read_u4(class_reader); // magic
   read_u2(class_reader); // major
   read_u2(class_reader); // minor
 
