@@ -216,9 +216,9 @@ int main(int argc, char **argv) {
   init_reader(class_reader, class_file_size, class_file_data);
 
   // read magic and major/minor
-  read_u4(class_reader); // magic
-  read_u2(class_reader); // major
-  read_u2(class_reader); // minor
+  skip_bytes(class_reader, 4); // magic
+  skip_bytes(class_reader, 2); // major
+  skip_bytes(class_reader, 2); // minor
 
   // read constant pool
   u2_t constant_pool_count = read_u2(class_reader);
@@ -260,11 +260,11 @@ int main(int argc, char **argv) {
     }
   }
 
-  read_u2(class_reader); // accsess flags
-  read_u2(class_reader); // this class
-  read_u2(class_reader); // super class
-  read_u2(class_reader); // interface count
-  read_u2(class_reader); // field count
+  skip_bytes(class_reader, 2); // accsess flags
+  skip_bytes(class_reader, 2); // this class
+  skip_bytes(class_reader, 2); // super class
+  skip_bytes(class_reader, 2); // interface count
+  skip_bytes(class_reader, 2); // field count
 
   u2_t method_count = read_u2(class_reader);
   method_t methods[method_count];
@@ -328,7 +328,7 @@ int main(int argc, char **argv) {
   reader_t *code_attr_reader = &code_attr_reader_instance;
   init_reader(code_attr_reader, code_attribute->attribute_length, code_attribute->info);
   u2_t max_stack = read_u2(code_attr_reader);
-  read_u2(code_attr_reader); // max locals
+  skip_bytes(code_attr_reader, 2); // max locals
   u4_t code_length = read_u4(code_attr_reader);
   char code[code_length];
   read_bytes(code_attr_reader, code, code_length);
