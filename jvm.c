@@ -182,6 +182,9 @@ void println(constant_t *args[], int args_count) {
 }
 
 int main(int argc, char **argv) {
+  if (argc != 2) {
+    error("usage: %s classfile", argv[0]);
+  }
   // load class file
   char class_file_name[strlen(argv[1]) + 7];
   sprintf(class_file_name, "%s.class", argv[1]);
